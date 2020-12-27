@@ -11,6 +11,10 @@ from yolov3_tf2.utils import draw_outputs
 from flask import Flask, request, Response, jsonify, send_from_directory, abort
 import os
 
+
+APP_ROOT = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(APP_ROOT, 'detections/')
+
 # customize your API through the following parameters
 classes_path = './data/labels/coco.names'
 weights_path = './weights/yolov3.tf'
@@ -87,14 +91,10 @@ def get_detections():
         img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
         cv2.imwrite(output_path + 'detection' + str(num) + '.jpg', img)
         print('output saved to: {}'.format(output_path + 'detection' + str(num) + '.jpg'))
-
-    #remove temporary images
-    for name in image_names:
-        os.remove(name)
-    try:
-        return jsonify({"response":response}), 200
-    except FileNotFoundError:
-        abort(404)
+    degisken = '{}'.format(output_path + 'detection')
+    file_name = "detection"+str(num) + '.jpg'
+    print(UPLOAD_FOLDER+file_name)
+    return send_from_directory(UPLOAD_FOLDER, file_name)
 
 # API that returns image with detections on it
 @app.route('/image', methods= ['POST'])
