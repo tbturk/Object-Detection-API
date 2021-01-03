@@ -10,11 +10,8 @@ from yolov3_tf2.dataset import transform_images, load_tfrecord_dataset
 from yolov3_tf2.utils import draw_outputs
 from flask import Flask, request, Response, jsonify, send_from_directory, abort
 import os
-
-
 APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(APP_ROOT, 'detections/')
-
 # customize your API through the following parameters
 classes_path = './data/labels/coco.names'
 weights_path = './weights/yolov3.tf'
@@ -22,28 +19,22 @@ tiny = False                    # set to True if using a Yolov3 Tiny model
 size = 416                      # size images are resized to for model
 output_path = './detections/'   # path to output folder where images with detections are saved
 num_classes = 80                # number of classes in model
-
 # load in weights and classes
 physical_devices = tf.config.experimental.list_physical_devices('GPU')
 if len(physical_devices) > 0:
     tf.config.experimental.set_memory_growth(physical_devices[0], True)
-
 if tiny:
     yolo = YoloV3Tiny(classes=num_classes)
 else:
     yolo = YoloV3(classes=num_classes)
-
 yolo.load_weights(weights_path).expect_partial()
 print('weights loaded')
-
 class_names = [c.strip() for c in open(classes_path).readlines()]
 print('classes loaded')
-
 # Initialize Flask application
 app = Flask(__name__)
-
 # API that returns JSON with classes found in images
-@app.route('/detections', methods=['POST'])
+@app.route('/detections', methods=['POST']) 
 def get_detections():
     raw_images = []
     images = request.files.getlist("images")
@@ -60,7 +51,6 @@ def get_detections():
     
     # create list for final response
     response = []
-
     for j in range(len(raw_images)):
         # create list of responses for current image
         responses = []
@@ -68,12 +58,10 @@ def get_detections():
         num+=1
         img = tf.expand_dims(raw_img, 0)
         img = transform_images(img, size)
-
         t1 = time.time()
         boxes, scores, classes, nums = yolo(img)
         t2 = time.time()
         print('time: {}'.format(t2 - t1))
-
         print('detections:')
         for i in range(nums[0]):
             print('\t{}, {}, {}'.format(class_names[int(classes[0][i])],
@@ -95,7 +83,6 @@ def get_detections():
     file_name = "detection"+str(num) + '.jpg'
     print(UPLOAD_FOLDER+file_name)
     return send_from_directory(UPLOAD_FOLDER, file_name)
-
 # API that returns image with detections on it
 @app.route('/image', methods= ['POST'])
 def get_image():
@@ -106,12 +93,10 @@ def get_image():
         open(image_name, 'rb').read(), channels=3)
     img = tf.expand_dims(img_raw, 0)
     img = transform_images(img, size)
-
     t1 = time.time()
     boxes, scores, classes, nums = yolo(img)
     t2 = time.time()
     print('time: {}'.format(t2 - t1))
-
     print('detections:')
     for i in range(nums[0]):
         print('\t{}, {}, {}'.format(class_names[int(classes[0][i])],
@@ -119,19 +104,31 @@ def get_image():
                                         np.array(boxes[0][i])))
     img = cv2.cvtColor(img_raw.numpy(), cv2.COLOR_RGB2BGR)
     img = draw_outputs(img, (boxes, scores, classes, nums), class_names)
+    # font
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    # org
+    org = (30, 30)
+    # fontScale
+    fontScale = 1
+    # Blue color in BGR
+    color = (255, 0, 0)
+    # Line thickness of 2 px
+    thickness = 5
+    sayi = str(nums[0])
+    sayi = sayi.split("sor(")[1]
+    sayi = sayi.split(",")[0]
+    img = cv2.putText(img, sayi+" tane obje bulundu", org, font, fontScale, color, thickness, cv2.LINE_AA)
     cv2.imwrite(output_path + 'detection.jpg', img)
-    print('output saved to: {}'.format(output_path + 'detection.jpg'))
-    
+    print('output saved to: {}'.format(output_path + 'detection.jpg'+sayi))
     # prepare image for response
     _, img_encoded = cv2.imencode('.png', img)
     response = img_encoded.tostring()
     
     #remove temporary image
     os.remove(image_name)
-
     try:
         return Response(response=response, status=200, mimetype='image/png')
     except FileNotFoundError:
         abort(404)
 if __name__ == '__main__':
-    app.run(debug=True, host = '0.0.0.0', port=80)
+    app.run(host = '0.0.0.0', port=80, debug = True)
